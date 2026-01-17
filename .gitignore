@@ -12,3 +12,4 @@ __marimo__/
 rag_intro.py
 rag_pipeline.py
 data/
+.env

@@ -39,6 +39,12 @@ Run the main pipeline (example):
 uvicorn main:app --port 8000
 ```
 
+Create a env file:
+
+```bash
+GROQ_API_KEY=
+```
+
 ---
 
 ##  Project Structure
