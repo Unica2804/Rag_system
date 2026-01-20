@@ -22,7 +22,7 @@ class RagRetrieval:
         print(f"Top_k: {top_k}, Threshold_score: {threshold_score}")
 
         # Generate embeddings for query
-        query_embedding= self.embedding_manager.generate_embeddings([query])[0]
+        query_embedding= self.embedding_manager.generate_query_embeddings(query)
         # Search in Vector Store
         try:
             results= self.vector_store.collection.query(

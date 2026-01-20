@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 # Import your custom modules
 from src.chunking import split_documents
 from src.embedding import EmbeddingProcessor
-from src.Ingestion import Pdf_processor
+from src.Ingestion import data_ingestor
 from src.retriever import RagRetrieval
 from src.vector_store import VectorStore
 
@@ -23,7 +23,7 @@ llm = ChatGroq(
     max_tokens=1024    
 )
 
-embedding_processor = EmbeddingProcessor()
+embedding_processor = EmbeddingProcessor(device='cuda', batch_size=64)
 # Assuming VectorStore() handles the connection to the persistent ChromaDB folder internally
 vector_store = VectorStore() 
 
@@ -39,7 +39,7 @@ async def upload_process(file: UploadFile = File(...)):
     Accepts a PDF file upload, saves it temporarily, processes it, 
     and adds it to the persistent Vector Store.
     """
-    temp_file_path = f"temp_{file.filename}"
+    temp_file_path = f"{file.filename}"
     
     try:
         # 1. Save uploaded file to disk temporarily
@@ -48,12 +48,12 @@ async def upload_process(file: UploadFile = File(...)):
             shutil.copyfileobj(file.file, buffer)
 
         # 2. Process the file
-        pdf_doc = Pdf_processor(temp_file_path)
-        splitted_doc = split_documents(pdf_doc)
+        doc = data_ingestor(temp_file_path).ingest()
+        splitted_doc = split_documents(doc)
         
         # 3. Generate Embeddings
         text_content = [doc.page_content for doc in splitted_doc]
-        embeddings = embedding_processor.generate_embeddings(text_content)
+        embeddings = embedding_processor.generate_doc_embeddings(text_content)
         
         # 4. Add to ChromaDB (Persistent)
         vector_store.add_documents(splitted_doc, embeddings)
