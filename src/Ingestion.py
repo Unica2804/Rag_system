@@ -1,9 +1,6 @@
 import os
 # from langchain_community_community.document_loaders import PyMuPDFLoader
 from pathlib import Path
-
-# ...existing code...
-from pathlib import Path
 from typing import List, Callable, Iterable, Optional
 
 SUPPORTED_EXTENSIONS = {'.pdf', '.xls', '.xlsx', '.docx', '.ppt', '.pptx', '.csv'}
@@ -102,8 +99,3 @@ class data_ingestor:
 
         print(f"\nTotal documents loaded: {len(all_documents)}")
         return all_documents
-
-# # convenience wrapper for backward compatibility
-# def Pdf_processor(path_input: str) -> List:
-#     return data_ingestor(path_input).ingest()
-# # ...existing code...

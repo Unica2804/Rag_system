@@ -1,68 +1,80 @@
 # from vector_store import VectorStore
 # from embedding import EmbeddingProcessor
 from typing import List,Dict,Any
+from pydantic import ConfigDict,Field
 
-class RagRetrieval:
-    def __init__(self,vector_store, embedding_manager):
-        self.vector_store= vector_store
-        self.embedding_manager= embedding_manager
-    def retrieve(self, query: str, top_k: int=5, threshold_score: float=0.0) -> List[Dict[str,Any]]:
+from langchain_core.callbacks import CallbackManagerForRetrieverRun
+from langchain_core.documents import Document
+from langchain_core.retrievers import BaseRetriever
+
+class SemanticRetriever(BaseRetriever):
+    """
+    A LangChain-compatible retriever that performs semantic search using embeddings.
+    """
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
+    vector_store: Any = Field(...)
+    embedding_manager: Any = Field(...)
+    k: int = 5
+    threshold: float = 0.0
+
+    def _get_relevant_documents(
+        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
+    ) -> List[Document]:
         """
-        It Takes a query embeds it and does cosine similarity to search from Vector store to retrieve Content.
-
+        Embeds the query and performs cosine similarity search in the vector store.
+        
         Args:
-            query: It takes in the user query
-            top_k: It returns the number of best matches
-            threshold_score: The score you set for cosine similarity 
+            query: The user query to search for
+            run_manager: LangChain callback manager
+            
         Returns:
-            List of retrieved Docs and the metadata
-
+            List of LangChain Documents with metadata
         """
         print(f"USER query: {query}")
-        print(f"Top_k: {top_k}, Threshold_score: {threshold_score}")
+        print(f"Top_k: {self.k}, Threshold_score: {self.threshold}")
 
         # Generate embeddings for query
-        query_embedding= self.embedding_manager.generate_query_embeddings(query)
-        # Search in Vector Store
+        query_embedding = self.embedding_manager.generate_query_embeddings(query)
+
         try:
-            results= self.vector_store.collection.query(
+            results = self.vector_store.collection.query(
                 query_embeddings=[query_embedding.tolist()],
-                n_results=top_k                
+                n_results=self.k
             )
 
-            # Retrieve results
-            retrieved_docs=[]
+            langchain_docs = []
 
             if results['documents'] and results['documents'][0]:
-                documents= results['documents'][0]
-                metadatas= results['metadatas'][0]
-                distances= results['distances'][0]
-                ids= results['ids'][0]
+                documents = results['documents'][0]
+                metadatas = results['metadatas'][0]
+                distances = results['distances'][0]
+                ids = results['ids'][0]
 
-                for i , (doc_id,document,metadata,distance) in enumerate(zip(ids,documents,metadatas,distances)):
-                    # Convert distance to simiarity score. Chroma uses cosine distance
+                for i, (doc_id, document, metadata, distance) in enumerate(
+                    zip(ids, documents, metadatas, distances)
+                ):
+                    similarity_score = 1 - distance
 
-                    similarity_score= 1- distance
+                    if similarity_score >= self.threshold:
+                        doc = Document(
+                            page_content=document,
+                            metadata={
+                                **metadata,
+                                'id': doc_id,
+                                'similarity_score': similarity_score,
+                                'distance': distance,
+                                'rank': i + 1
+                            }
+                        )
+                        langchain_docs.append(doc)
 
-                    # Condition for doc retrieval
-
-                    if similarity_score >= threshold_score:
-                        retrieved_docs.append({
-                            'id': doc_id,
-                            'content': document,
-                            'metadata': metadata,
-                            'similarity_score':similarity_score,
-                            'distance':distance,
-                            'rank':i+1
-                        })
-
-                print(f"Retrieved {len(retrieved_docs)} documents after filtering")
+                print(f"Retrieved {len(langchain_docs)} documents after filtering")
             else:
-                print("No documents found !!")
+                print("No documents found!")
 
-            return retrieved_docs
+            return langchain_docs
 
         except Exception as e:
-            print(f"Exception occured: {e}")
-            return[]
-
+            print(f"Exception occurred: {e}")
+            return []

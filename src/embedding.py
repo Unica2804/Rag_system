@@ -48,6 +48,6 @@ class EmbeddingProcessor:
         embeddings=self.model.embed_query(texts)
         print(f"Generated embedding with shape: {len(embeddings)}")
         return numpy.array(embeddings)
-    def get_device(self) -> str:
+    def _get_device(self) -> str:
         """Return the device the model is running on."""
         return str(self.model._client.device)
