@@ -1,4 +1,4 @@
-# RAG_system — Retrieval-Augmented Generation 
+# RAG_system — Retrieval-Augmented Generation System
 
 **Status:** ⚠️ **Under development**
 
@@ -50,14 +50,14 @@ GROQ_API_KEY=
 ##  Project Structure
 
 - `main.py` — entry point demonstrating end-to-end usage
-- `llm/llm.py` — local LLM wrapper
 - `src/` — core modules:
   - `chunking.py` — document chunking utilities
   - `embedding.py` — embedding helpers
   - `Ingestion.py` — document ingestion routines
   - `retriever.py` — retrieval logic
   - `vector_store.py` — vector store adapter (Chroma)
-- `data/` — source documents, PDFs, and generated vector store files
+- `unit_tests/` — Contains tests for checking functionality of some modules
+- `data/` — persistent vector store
 - `requirements.txt` — Python dependencies
 - `Dockerfile` — containerization configuration
 
@@ -65,7 +65,7 @@ GROQ_API_KEY=
 
 ##  How it works (high level)
 
-1. Ingest documents from `data/` (PDFs, text)
+1. Ingest documents from a temp folder (PDFs, text, docs)
 2. Chunk documents into smaller passages for embedding
 3. Create embeddings using the configured encoder
 4. Store embeddings in the vector store
@@ -77,8 +77,8 @@ GROQ_API_KEY=
 ##  Development & Roadmap
 
 The project is actively being developed. Planned improvements:
-- Add tests and CI for core components ✅
-- Improve ingestion for more file formats (DOCX, HTML)
+- Add tests and CI for core components 
+- Improve ingestion for more file formats (HTML)
 - Add configuration for multiple embedding/LLM providers
 - Robust Docker and deployment workflows
 - Example notebooks and end-to-end demos
