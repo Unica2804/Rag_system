@@ -1,8 +1,8 @@
-# RAG_system — Retrieval-Augmented Generation System
+ # RAG_system — Retrieval-Augmented Generation System
 
 **Status:** ⚠️ **Under development**
 
-> RAG_system is a small, modular project that demonstrates a Retrieval-Augmented Generation (RAG) pipeline. It provides utilities for ingesting documents, chunking and embedding text, storing embeddings in a vector store, and running retrieval + generation flows with local LLM and API.
+> RAG_system is a small, modular project that demonstrates a Retrieval-Augmented Generation (RAG) pipeline. It provides utilities for ingesting documents, chunking and embedding text, storing embeddings in a vector store, and running retrieval + generation flows with local LLM and API. It includes both a REST API and a web UI for easy interaction.
 
 ---
 
@@ -31,13 +31,21 @@ Run the Docker image (optional):
 docker run -p 8000:8000 <Name of image>
 ```
 
-In browser open http://127.0.0.1:8000/docs to open swagger UI.
-
-Run the main pipeline (example):
+Start the backend API:
 
 ```bash
 uvicorn main:app --port 8000
 ```
+
+In browser open http://127.0.0.1:8000/docs to open swagger UI.
+
+Start the web UI:
+
+```bash
+streamlit run streamlit_app.py
+```
+
+In browser open the Streamlit app (usually http://localhost:8501) to interact with the system via the web interface.
 
 Create a env file:
 
@@ -49,7 +57,8 @@ GROQ_API_KEY=
 
 ##  Project Structure
 
-- `main.py` — entry point demonstrating end-to-end usage
+- `main.py` — FastAPI backend entry point
+- `streamlit_app.py` — Streamlit web UI for interacting with the RAG system
 - `src/` — core modules:
   - `chunking.py` — document chunking utilities
   - `embedding.py` — embedding helpers
