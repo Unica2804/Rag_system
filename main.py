@@ -1,7 +1,9 @@
 import os
 import shutil
 from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
 from langchain_community.retrievers import BM25Retriever
@@ -20,32 +22,47 @@ from src.vector_store import VectorStore
 
 load_dotenv()
 
+
+# Pydantic models
+class QueryRequest(BaseModel):
+    question: str
+    top_k: int = 5
+
+
 # Initialize Global Components
 llm = ChatGroq(
-    model='openai/gpt-oss-20b',
-    temperature=0.3,
-    max_retries=2,
-    max_tokens=1024    
+    model="openai/gpt-oss-20b", temperature=0.3, max_retries=2, max_tokens=1024
 )
 
 # Initialize Embedding Processor and Vector Store
-embedding_processor = EmbeddingProcessor(device='cuda', batch_size=64)
-vector_store = VectorStore() 
+embedding_processor = EmbeddingProcessor(device="cuda", batch_size=64)
+vector_store = VectorStore()
 
 app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for development; restrict in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.get("/")
 def root():
     return {"message": "RAG System is Live"}
 
+
 @app.post("/upload")
 async def upload_process(file: UploadFile = File(...)):
     """
-    Accepts a PDF file upload, saves it temporarily, processes it, 
+    Accepts a PDF file upload, saves it temporarily, processes it,
     and adds it to the persistent Vector Store.
     """
     temp_file_path = f"{file.filename}"
-    
+
     try:
         # Save uploaded file to disk temporarily
         with open(temp_file_path, "wb") as buffer:
@@ -54,46 +71,56 @@ async def upload_process(file: UploadFile = File(...)):
         # Process the file
         doc = data_ingestor(temp_file_path).ingest()
         splitted_doc = split_documents(doc)
-        
+
         # Generate Embeddings
         text_content = [doc.page_content for doc in splitted_doc]
         embeddings = embedding_processor.generate_doc_embeddings(text_content)
-        
+
         # Add to ChromaDB (Persistent)
         vector_store.add_documents(splitted_doc, embeddings)
-        
-        return JSONResponse(status_code=200, content={'Status': 'Success', 'Chunks Processed': len(splitted_doc)})
+
+        return JSONResponse(
+            status_code=200,
+            content={"Status": "Success", "Chunks Processed": len(splitted_doc)},
+        )
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
-    
+
     finally:
         # Cleanup: Delete the temporary file
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
+
 @app.post("/query")
-def rag_simple(question: str, top_k: int = 5):
+def rag_simple(request: QueryRequest):
     """
-    Query the vector store. 
+    Query the vector store.
     """
+    question = request.question
+    top_k = request.top_k
     try:
-        all_docs= vector_store.collection.get()
-        if not all_docs['documents']:
-            raise HTTPException(status_code=400, detail="No documents in the vector store. Please upload documents first.")
+        all_docs = vector_store.collection.get()
+        if not all_docs["documents"]:
+            raise HTTPException(
+                status_code=400,
+                detail="No documents in the vector store. Please upload documents first.",
+            )
         chunked_docs = [
             Document(page_content=doc, metadata=meta)
-            for doc, meta in zip(all_docs['documents'], all_docs['metadatas'])
+            for doc, meta in zip(all_docs["documents"], all_docs["metadatas"])
         ]
         # Initialize retrievers
-        semantic_retriever = SemanticRetriever(vector_store=vector_store, embedding_manager=embedding_processor,k=top_k)
+        semantic_retriever = SemanticRetriever(
+            vector_store=vector_store, embedding_manager=embedding_processor, k=top_k
+        )
         keyword_retriever = BM25Retriever.from_documents(chunked_docs)
         keyword_retriever.k = 2
         retriever = EnsembleRetriever(
-            retrievers=[semantic_retriever, keyword_retriever],
-            weights=[0.7, 0.3]
+            retrievers=[semantic_retriever, keyword_retriever], weights=[0.7, 0.3]
         )
-        
+
         # Retrieve
         # results = retriever.invoke(question)
         #
@@ -105,19 +132,19 @@ def rag_simple(question: str, top_k: int = 5):
         Question: {question}
         """
         prompt = ChatPromptTemplate.from_template(template)
-        
+
         # Define a helper to format docs
         def format_docs(docs):
             return "\n\n".join([d.page_content for d in docs])
 
-        # Build the Chain 
+        # Build the Chain
         chain = (
             {"context": retriever | format_docs, "question": RunnablePassthrough()}
             | prompt
             | llm
             | StrOutputParser()
         )
-        
+
         # Run it
         response = chain.invoke(question)
         return {"response": response}
